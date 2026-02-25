@@ -9,8 +9,23 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: "var(--background)",
-        foreground: "var(--foreground)",
+        navy: "#0A2740",
+        lime: "#0BD751",
+        "navy-light": "#0E3150",
+        "text-muted": "#8A9BB0",
+      },
+      fontFamily: {
+        sans: ["var(--font-figtree)", "Figtree", "sans-serif"],
+        mono: ["var(--font-jetbrains-mono)", "JetBrains Mono", "monospace"],
+      },
+      keyframes: {
+        marquee: {
+          "0%": { transform: "translateX(0)" },
+          "100%": { transform: "translateX(-50%)" },
+        },
+      },
+      animation: {
+        marquee: "marquee 35s linear infinite",
       },
     },
   },
