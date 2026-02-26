@@ -24,7 +24,7 @@ export default function Footer() {
               <p className="text-xs text-white/30 font-semibold uppercase tracking-widest mb-4">Product</p>
               <ul className="space-y-3">
                 {[
-                  { label: "How it works", href: "#" },
+                  { label: "How it works", href: "https://docs.credpay.xyz/how-it-works" },
                   { label: "Docs", href: "https://docs.credpay.xyz" },
                   { label: "API Reference", href: "https://docs.credpay.xyz" },
                 ].map((l) => (

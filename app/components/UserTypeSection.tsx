@@ -47,7 +47,12 @@ export default function UserTypeSection() {
 
         {/* Content card */}
         <div className="bg-white rounded-3xl border border-gray-100 shadow-xl shadow-gray-100/80 p-7 md:p-9 transition-all duration-300">
-          {mode === "human" ? <ShoppingAssistant /> : <AgentInstall />}
+          <div className={mode === "human" ? undefined : "hidden"}>
+            <ShoppingAssistant />
+          </div>
+          <div className={mode === "agent" ? undefined : "hidden"}>
+            <AgentInstall />
+          </div>
         </div>
 
         {/* Bottom note */}

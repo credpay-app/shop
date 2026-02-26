@@ -19,7 +19,7 @@ export default function Hero() {
 
         {/* Subtext */}
         <p className="text-lg md:text-xl text-[#0A2740]/55 max-w-2xl mx-auto leading-relaxed mb-10">
-          Send an order, pay with USDC, we handle the rest. Built for humans and AI agents alike.
+          Send an order, pay with USDC, we handle the rest. Built for humans and agents.
         </p>
 
         {/* CTAs */}

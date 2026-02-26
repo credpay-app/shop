@@ -31,8 +31,8 @@ export default function Navigation() {
 
         {/* Desktop links */}
         <div className="hidden md:flex items-center gap-8">
-          <a href="#how-it-works" className="text-sm text-[#0A2740]/60 hover:text-[#0A2740] font-medium transition-colors">
-            How it works
+          <a href="https://x402.credpay.xyz" className="text-sm text-[#0A2740]/60 hover:text-[#0A2740] font-medium transition-colors">
+            x402 Credit
           </a>
           <a
             href="https://docs.credpay.xyz"
@@ -42,25 +42,25 @@ export default function Navigation() {
           >
             Docs
           </a>
-          <a
+          {/* <a
             href="https://x.com/credpay"
             target="_blank"
             rel="noopener noreferrer"
             className="text-sm text-[#0A2740]/60 hover:text-[#0A2740] font-medium transition-colors"
           >
             Twitter
-          </a>
+          </a> */}
         </div>
 
         {/* CTA */}
-        <a
+        {/* <a
           href="https://docs.credpay.xyz"
           target="_blank"
           rel="noopener noreferrer"
           className="bg-[#0A2740] text-white text-sm font-semibold px-5 py-2.5 rounded-full hover:bg-[#0A2740]/90 transition-colors"
         >
           Get API Access
-        </a>
+        </a> */}
       </div>
     </nav>
   );
