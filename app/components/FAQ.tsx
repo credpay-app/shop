@@ -5,34 +5,38 @@ import { Plus, Minus } from "lucide-react";
 
 const faqs = [
   {
+    question: "Does Credpay store my personal data?",
+    answer:
+      "No. Credpay never stores your name, email, phone number, or shipping address on its servers. Your details are passed directly to the store's checkout at the time of purchase.",
+  },
+  {
     question: "What stores are supported?",
     answer:
-      "Shopify only for now. The AI is trained on Shopify's checkout flow.",
+      "Credpay works with thousands of online stores including Nike, ASOS, Shopify merchants, WooCommerce stores, and more.",
+  },
+  {
+    question: "How does payment work?",
+    answer:
+      "Payments are settled in USDC on Base using the x402 protocol. When you click Pay, your connected wallet signs an authorisation for the exact amount.",
   },
   {
     question: "What happens if the checkout fails?",
     answer:
-      "On recoverable failures the agent retries once automatically. On genuine failures (out of stock, unsupported region) you receive a full refund minus the service fee and AI execution cost.",
+      "If the checkout agent can't place your order, your funds are immediately returned to your wallet. You'll see an error message and can try again.",
   },
   {
-    question: "How is the refund calculated?",
-    answer:
-      "You authorize a max amount (goods + service fee + 20% buffer). After checkout, Credpay settles the actual spend and refunds the difference on-chain automatically.",
+    question: "Which wallet do I need?",
+    answer: "Any EVM-compatible wallet that holds USDC on Base. ",
   },
   {
     question: "What is x402?",
     answer:
-      "x402 is an open payment protocol that lets HTTP clients attach signed USDC authorizations as request headers — no API keys, no accounts.",
+      "x402 is an open payment protocol built on HTTP. Instead of entering card details, a server returns a payment request (HTTP 402) and your wallet signs the USDC transfer directly on-chain — no card numbers, no bank redirects.",
   },
   {
-    question: "Is my card data safe?",
+    question: "Can AI agents use this?",
     answer:
-      "Credpay uses an internal virtual card to complete the store checkout. Your payment stays on-chain via USDC — no card data is ever exposed to your agent.",
-  },
-  {
-    question: "Can I get notified when checkout completes?",
-    answer:
-      "Yes. Pass a callbackUrl in the request body and Credpay will POST the result to your webhook when the checkout reaches a terminal state.",
+      "Yes, that's a core use case. The same x402 API powering this interface is available for autonomous agents to call directly, enabling fully programmatic shopping without human intervention.",
   },
 ];
 
@@ -48,16 +52,16 @@ function FAQItem({
   const [open, setOpen] = useState(defaultOpen);
 
   return (
-    <div className="border-b border-white/10 last:border-0">
+    <div className="border-b border-gray-100 last:border-0">
       <button
         className="w-full flex items-center justify-between py-5 text-left group"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
       >
-        <span className="text-sm sm:text-base font-semibold text-white group-hover:text-[#0BD751] transition-colors pr-4">
+        <span className="text-sm sm:text-base font-semibold text-[#0A2740] group-hover:text-[#0BD751] transition-colors pr-4">
           {question}
         </span>
-        <span className="shrink-0 w-6 h-6 rounded-full border border-white/20 flex items-center justify-center text-[#8A9BB0] group-hover:border-[#0BD751]/50 group-hover:text-[#0BD751] transition-all">
+        <span className="shrink-0 w-6 h-6 rounded-full border border-gray-200 flex items-center justify-center text-[#0A2740]/40 group-hover:border-[#0BD751]/50 group-hover:text-[#0BD751] transition-all">
           {open ? <Minus size={13} /> : <Plus size={13} />}
         </span>
       </button>
@@ -67,7 +71,7 @@ function FAQItem({
           open ? "max-h-96 pb-5" : "max-h-0"
         }`}
       >
-        <p className="text-sm text-[#8A9BB0] leading-relaxed">{answer}</p>
+        <p className="text-sm text-[#0A2740]/60 leading-relaxed">{answer}</p>
       </div>
     </div>
   );
@@ -88,7 +92,7 @@ export default function FAQ() {
           }
         });
       },
-      { threshold: 0.1 }
+      { threshold: 0.1 },
     );
     items.forEach((item) => observer.observe(item));
     return () => observer.disconnect();
@@ -98,7 +102,7 @@ export default function FAQ() {
     <section
       id="faq"
       ref={sectionRef}
-      className="py-24 px-4 bg-[#0A2740]"
+      className="py-24 px-4 bg-white"
       aria-labelledby="faq-title"
     >
       <div className="max-w-3xl mx-auto">
@@ -109,7 +113,7 @@ export default function FAQ() {
           </p>
           <h2
             id="faq-title"
-            className="text-3xl sm:text-4xl font-extrabold text-white"
+            className="text-3xl sm:text-4xl font-extrabold text-[#0A2740]"
           >
             Frequently asked questions
           </h2>
@@ -117,7 +121,7 @@ export default function FAQ() {
 
         {/* Accordion */}
         <div
-          className="fade-up bg-[#0E3150] rounded-2xl border border-white/5 px-6 sm:px-8"
+          className="fade-up rounded-2xl border border-gray-100 px-6 sm:px-8"
           style={{ transitionDelay: "0.1s" }}
         >
           {faqs.map((faq, index) => (
