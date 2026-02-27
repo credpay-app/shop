@@ -18,7 +18,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://shop.credpay.io"),
+  metadataBase: new URL("https://shop.credpay.xyz"),
   title: "Shop by Credpay — Universal Checkout Agent",
   description:
     "Complete any checkout on any online store — Nike, ASOS, Shopify, WooCommerce and more. For humans and AI agents, powered by x402.",

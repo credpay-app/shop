@@ -7,7 +7,7 @@ export const wagmiConfig = createConfig({
   connectors: [
     coinbaseWallet({
       appName: "Shop by Credpay",
-      appLogoUrl: "https://shop.credpay.io/logo.png",
+      appLogoUrl: "https://shop.credpay.xyz/logo.png",
       preference: "all",
     }),
   ],
