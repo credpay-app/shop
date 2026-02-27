@@ -33,18 +33,41 @@ async function fetchProductFromUrl(url: string): Promise<CartProduct & { variant
   return body;
 }
 
-async function fetchProducts(query: string): Promise<CartProduct[]> {
+const SEARCH_POLL_INTERVAL = 6_000;
+const SEARCH_POLL_TIMEOUT = 5 * 60 * 1_000;
+
+async function startSearch(query: string): Promise<string> {
   const res = await fetch("/api/search", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ query }),
   });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error ?? `Search failed (${res.status})`);
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error ?? `Search failed (${res.status})`);
+  if (!body.jobId) throw new Error("No job ID returned");
+  return body.jobId as string;
+}
+
+async function pollSearchResults(jobId: string): Promise<CartProduct[]> {
+  const deadline = Date.now() + SEARCH_POLL_TIMEOUT;
+
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, SEARCH_POLL_INTERVAL));
+
+    const res = await fetch(`/api/search/${jobId}`);
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) throw new Error(data.error ?? `Poll failed (${res.status})`);
+
+    if (data.status === "completed") {
+      return (data.products ?? []) as CartProduct[];
+    }
+    if (data.status === "failed") {
+      throw new Error(data.error ?? "Search failed");
+    }
   }
-  const data = await res.json();
-  return data.products as CartProduct[];
+
+  throw new Error("Search timed out — please try again");
 }
 
 // SHIPPING: uncomment to re-enable delivery options step
@@ -798,7 +821,14 @@ export default function ShoppingAssistant() {
     push(userMsg(trimmed), loadingMsg());
 
     try {
-      const products = await fetchProducts(trimmed);
+      const jobId = await startSearch(trimmed);
+      const products = await pollSearchResults(jobId);
+      if (!products.length) {
+        replaceLast(
+          assistantMsg(`No products found for "${trimmed}". Try a different search?`, "text")
+        );
+        return;
+      }
       replaceLast(
         assistantMsg(
           `Found ${products.length} result${products.length !== 1 ? "s" : ""} for "${trimmed}". Pick a store:`,
