@@ -676,7 +676,7 @@ function PaymentCard({
       {/* Wallet connect / identity */}
       {phase !== "done" && phase !== "failed" && (
         <Wallet>
-          <ConnectWallet className="w-full bg-[#0052FF] text-white font-bold py-2.5 rounded-xl text-sm hover:bg-[#0044DD] transition-colors" />
+          <ConnectWallet className="w-full bg-[#0BD751] text-[#0A2740] font-bold py-2.5 rounded-xl text-sm hover:bg-[#09c248] transition-colors" />
           <WalletDropdown>
             <Identity hasCopyAddressOnClick className="px-4 pt-3 pb-2">
               <Avatar />
