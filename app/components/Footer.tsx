@@ -61,7 +61,7 @@ export default function Footer() {
                 {[
                   { label: "Credpay.xyz", href: "https://credpay.xyz" },
                   { label: "Twitter", href: "https://x.com/credpayapp" },
-                  { label: "GitHub", href: "https://github.com/credpayapp" },
+                  { label: "GitHub", href: "https://github.com/credpay-app" },
                 ].map((l) => (
                   <li key={l.label}>
                     <a
