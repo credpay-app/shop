@@ -65,6 +65,7 @@ export type ChatMessageType =
   | "text"
   | "loading"
   | "products"
+  | "url_product"
   | "size_selector"
   | "color_selector"
   | "confirm_details"
@@ -80,6 +81,7 @@ export interface ChatMessage {
   content: string;
   data?: {
     products?: CartProduct[];
+    urlProduct?: CartProduct & { variantTitle?: string };
     sizes?: string[];
     colors?: string[];
     selectedProduct?: CartProduct;

@@ -26,6 +26,13 @@ import "react-phone-number-input/style.css";
 
 // ─── API calls ─────────────────────────────────────────────────────────────
 
+async function fetchProductFromUrl(url: string): Promise<CartProduct & { variantTitle?: string }> {
+  const res = await fetch(`/api/product?url=${encodeURIComponent(url)}`);
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error ?? `Could not load product (${res.status})`);
+  return body;
+}
+
 async function fetchProducts(query: string): Promise<CartProduct[]> {
   const res = await fetch("/api/search", {
     method: "POST",
@@ -744,6 +751,8 @@ export default function ShoppingAssistant() {
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [query, setQuery] = useState("");
+  const [urlInput, setUrlInput] = useState("");
+  const [mode, setMode] = useState<"search" | "url">("search");
   const [started, setStarted] = useState(false);
   const [loadingStatusIdx, setLoadingStatusIdx] = useState(0);
   const selectionRef = useRef<{
@@ -801,6 +810,35 @@ export default function ShoppingAssistant() {
       replaceLast(
         assistantMsg(
           `Sorry, I couldn't find "${trimmed}" right now. ${err instanceof Error ? err.message : "Please try again."}`,
+          "text"
+        )
+      );
+    }
+  };
+
+  // URL mode: User pastes a Shopify product URL
+  const handleUrlSubmit = async (url: string) => {
+    const trimmed = url.trim();
+    if (!trimmed) return;
+    setStarted(true);
+    setUrlInput("");
+
+    push(userMsg(trimmed), loadingMsg());
+
+    try {
+      const product = await fetchProductFromUrl(trimmed);
+      selectionRef.current = { product };
+      replaceLast(
+        assistantMsg(
+          `Found it! Confirm your item:`,
+          "url_product",
+          { urlProduct: product }
+        )
+      );
+    } catch (err) {
+      replaceLast(
+        assistantMsg(
+          err instanceof Error ? err.message : "Could not load that product. Please check the URL.",
           "text"
         )
       );
@@ -1038,6 +1076,62 @@ export default function ShoppingAssistant() {
                     </div>
                   )}
 
+                  {msg.type === "url_product" && msg.data?.urlProduct && (
+                    <div className="bg-white border border-gray-100 rounded-3xl rounded-tl-sm px-4 py-3 shadow-sm">
+                      <p className="text-sm text-[#0A2740] mb-2">{msg.content}</p>
+                      <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm max-w-sm">
+                        {msg.data.urlProduct.imageUrl && (
+                          <div className="w-full h-36 bg-gray-50 overflow-hidden">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={msg.data.urlProduct.imageUrl}
+                              alt={msg.data.urlProduct.name}
+                              className="w-full h-full object-cover"
+                              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                            />
+                          </div>
+                        )}
+                        <div className="p-3.5 flex items-center justify-between">
+                          <div className="min-w-0 mr-3">
+                            <p className="font-semibold text-[#0A2740] text-sm leading-tight">{msg.data.urlProduct.name}</p>
+                            <p className="text-[#0A2740]/45 text-xs mt-0.5">
+                              {msg.data.urlProduct.store}
+                              {msg.data.urlProduct.variantTitle ? ` · ${msg.data.urlProduct.variantTitle}` : ""}
+                            </p>
+                          </div>
+                          <div className="flex flex-col items-end gap-1.5 shrink-0">
+                            <span className="font-bold text-[#0A2740] text-sm">
+                              {msg.data.urlProduct.currency ?? "$"}{msg.data.urlProduct.price}
+                            </span>
+                            <button
+                              onClick={() => {
+                                const up = msg.data!.urlProduct!;
+                                if (up.availableSizes.length > 0) {
+                                  push(assistantMsg(
+                                    `Select your size for the ${up.name}:`,
+                                    "size_selector",
+                                    { sizes: up.availableSizes, colors: up.colors }
+                                  ));
+                                } else if (up.colors.length > 0) {
+                                  push(assistantMsg(
+                                    "Pick your color:",
+                                    "color_selector",
+                                    { colors: up.colors }
+                                  ));
+                                } else {
+                                  promptForDelivery();
+                                }
+                              }}
+                              className="bg-[#0A2740] text-white text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-[#0A2740]/85 transition-colors"
+                            >
+                              Checkout
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {msg.type === "size_selector" && (
                     <div className="bg-white border border-gray-100 rounded-3xl rounded-tl-sm px-4 py-3 shadow-sm">
                       <p className="text-sm text-[#0A2740] mb-1">{msg.content}</p>
@@ -1129,33 +1223,83 @@ export default function ShoppingAssistant() {
       {/* Input — visible only before first message */}
       {!started && (
         <div>
-          <div className="flex gap-2 mb-3">
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSend(query)}
-              placeholder='e.g. "Nike Air Max 95 size 10 in white"'
-              className="flex-1 border-2 border-gray-200 rounded-xl px-4 py-3 text-[#0A2740] placeholder-gray-300 text-sm focus:outline-none focus:border-[#0BD751] transition-colors bg-gray-50/50"
-            />
+          {/* Mode tabs */}
+          <div className="flex gap-1 mb-3 bg-gray-100 rounded-xl p-1 w-fit">
             <button
-              onClick={() => handleSend(query)}
-              className="bg-[#0BD751] text-[#0A2740] font-bold px-5 py-3 rounded-xl hover:bg-[#09c248] transition-colors text-sm shrink-0"
+              onClick={() => setMode("search")}
+              className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                mode === "search"
+                  ? "bg-white text-[#0A2740] shadow-sm"
+                  : "text-[#0A2740]/50 hover:text-[#0A2740]"
+              }`}
             >
-              Find
+              Search
+            </button>
+            <button
+              onClick={() => setMode("url")}
+              className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                mode === "url"
+                  ? "bg-white text-[#0A2740] shadow-sm"
+                  : "text-[#0A2740]/50 hover:text-[#0A2740]"
+              }`}
+            >
+              Paste URL
             </button>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {CHIPS.map((chip) => (
-              <button
-                key={chip}
-                onClick={() => handleSend(chip)}
-                className="text-xs bg-white border border-gray-200 text-[#0A2740]/60 hover:text-[#0A2740] hover:border-[#0A2740]/30 px-3 py-1.5 rounded-lg transition-colors font-medium"
-              >
-                {chip}
-              </button>
-            ))}
-          </div>
+
+          {mode === "search" ? (
+            <>
+              <div className="flex gap-2 mb-3">
+                <input
+                  type="text"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSend(query)}
+                  placeholder='e.g. "Nike Air Max 95 size 10 in white"'
+                  className="flex-1 border-2 border-gray-200 rounded-xl px-4 py-3 text-[#0A2740] placeholder-gray-300 text-sm focus:outline-none focus:border-[#0BD751] transition-colors bg-gray-50/50"
+                />
+                <button
+                  onClick={() => handleSend(query)}
+                  className="bg-[#0BD751] text-[#0A2740] font-bold px-5 py-3 rounded-xl hover:bg-[#09c248] transition-colors text-sm shrink-0"
+                >
+                  Find
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {CHIPS.map((chip) => (
+                  <button
+                    key={chip}
+                    onClick={() => handleSend(chip)}
+                    className="text-xs bg-white border border-gray-200 text-[#0A2740]/60 hover:text-[#0A2740] hover:border-[#0A2740]/30 px-3 py-1.5 rounded-lg transition-colors font-medium"
+                  >
+                    {chip}
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex gap-2 mb-2">
+                <input
+                  type="url"
+                  value={urlInput}
+                  onChange={(e) => setUrlInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleUrlSubmit(urlInput)}
+                  placeholder="https://store.com/products/product-name"
+                  className="flex-1 border-2 border-gray-200 rounded-xl px-4 py-3 text-[#0A2740] placeholder-gray-300 text-sm focus:outline-none focus:border-[#0BD751] transition-colors bg-gray-50/50"
+                />
+                <button
+                  onClick={() => handleUrlSubmit(urlInput)}
+                  className="bg-[#0BD751] text-[#0A2740] font-bold px-5 py-3 rounded-xl hover:bg-[#09c248] transition-colors text-sm shrink-0"
+                >
+                  Go
+                </button>
+              </div>
+              <p className="text-xs font-medium text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 w-fit">
+                Shopify stores only · More stores coming soon
+              </p>
+            </>
+          )}
         </div>
       )}
 
