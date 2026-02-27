@@ -1,12 +1,24 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useAccount, useWalletClient, usePublicClient } from "wagmi";
+import { wrapFetchWithPayment, x402Client } from "@x402/fetch";
+import { registerExactEvmScheme } from "@x402/evm/exact/client";
+import type { ClientEvmSigner } from "@x402/evm";
+import {
+  Wallet,
+  ConnectWallet,
+  WalletDropdown,
+  WalletDropdownDisconnect,
+} from "@coinbase/onchainkit/wallet";
+import { Identity, Avatar, Name, Address } from "@coinbase/onchainkit/identity";
 import { useUserStore } from "../hooks/useUserStore";
 import type {
   ChatMessage,
   CartProduct,
   StoredUserData,
-  ShippingOption,
+  // ShippingOption,  // SHIPPING: uncomment to re-enable delivery options step
+  CheckoutPaymentData,
 } from "../types/shopping";
 import { Country, State } from "country-state-city";
 import PhoneInput, { isValidPhoneNumber } from "react-phone-number-input";
@@ -28,29 +40,30 @@ async function fetchProducts(query: string): Promise<CartProduct[]> {
   return data.products as CartProduct[];
 }
 
-async function fetchShippingOptions(
-  product: CartProduct,
-  selectedSize: string | undefined,
-  selectedColor: string | undefined,
-  address: StoredUserData["address"]
-): Promise<{ productCost: number; currency: string; shippingOptions: ShippingOption[] }> {
-  const res = await fetch("/api/shipping", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      storeWebsite: product.storeWebsite,
-      productUrl: product.productUrl,
-      selectedSize,
-      selectedColor,
-      address,
-    }),
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error ?? `Shipping lookup failed (${res.status})`);
-  }
-  return res.json();
-}
+// SHIPPING: uncomment to re-enable delivery options step
+// async function fetchShippingOptions(
+//   product: CartProduct,
+//   selectedSize: string | undefined,
+//   selectedColor: string | undefined,
+//   address: StoredUserData["address"]
+// ): Promise<{ productCost: number; currency: string; shippingOptions: ShippingOption[] }> {
+//   const res = await fetch("/api/shipping", {
+//     method: "POST",
+//     headers: { "Content-Type": "application/json" },
+//     body: JSON.stringify({
+//       storeWebsite: product.storeWebsite,
+//       productUrl: product.productUrl,
+//       selectedSize,
+//       selectedColor,
+//       address,
+//     }),
+//   });
+//   if (!res.ok) {
+//     const body = await res.json().catch(() => ({}));
+//     throw new Error(body.error ?? `Shipping lookup failed (${res.status})`);
+//   }
+//   return res.json();
+// }
 
 const SEARCH_STATUS = [
   "Searching...",
@@ -117,30 +130,47 @@ function ProductCards({
       {products.map((p) => (
         <div
           key={p.id}
-          className="bg-white border border-gray-100 rounded-2xl p-3.5 flex items-center justify-between shadow-sm"
+          className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm"
         >
-          <div className="flex items-center gap-3">
+          {/* Product image */}
+          {p.imageUrl ? (
+            <div className="w-full h-36 bg-gray-50 overflow-hidden">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={p.imageUrl}
+                alt={p.name}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).style.display = "none";
+                }}
+              />
+            </div>
+          ) : (
             <div
-              className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-xs font-bold shrink-0"
+              className="w-full h-20 flex items-center justify-center text-white text-3xl font-bold"
               style={{ background: p.storeColor }}
             >
               {p.store[0]}
             </div>
-            <div>
-              <p className="font-semibold text-[#0A2740] text-sm leading-tight">{p.name}</p>
-              <p className="text-[#0A2740]/45 text-xs">{p.store}</p>
+          )}
+
+          {/* Details row */}
+          <div className="p-3.5 flex items-center justify-between">
+            <div className="min-w-0 mr-3">
+              <p className="font-semibold text-[#0A2740] text-sm leading-tight truncate">{p.name}</p>
+              <p className="text-[#0A2740]/45 text-xs mt-0.5">{p.store}</p>
             </div>
-          </div>
-          <div className="flex flex-col items-end gap-1.5">
-            <span className="font-bold text-[#0A2740] text-sm">
-              ${p.price}
-            </span>
-            <button
-              onClick={() => onSelect(p)}
-              className="bg-[#0A2740] text-white text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-[#0A2740]/85 transition-colors"
-            >
-              Select
-            </button>
+            <div className="flex flex-col items-end gap-1.5 shrink-0">
+              <span className="font-bold text-[#0A2740] text-sm">
+                {p.currency ?? "$"}{p.price}
+              </span>
+              <button
+                onClick={() => onSelect(p)}
+                className="bg-[#0A2740] text-white text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-[#0A2740]/85 transition-colors"
+              >
+                Select
+              </button>
+            </div>
           </div>
         </div>
       ))}
@@ -394,46 +424,294 @@ function AddressForm({ onSubmit }: { onSubmit: (d: StoredUserData) => void }) {
   );
 }
 
-function ShippingOptionsCard({
-  productCost,
-  currency,
-  shippingOptions,
-  onSelect,
+// SHIPPING: uncomment to re-enable delivery options step
+// function ShippingOptionsCard({
+//   productCost,
+//   currency,
+//   shippingOptions,
+//   onSelect,
+// }: {
+//   productCost: number;
+//   currency: string;
+//   shippingOptions: ShippingOption[];
+//   onSelect: (option: ShippingOption) => void;
+// }) {
+//   return (
+//     <div className="mt-2 bg-white border border-gray-100 rounded-2xl p-4 shadow-sm max-w-sm w-full">
+//       <div className="flex justify-between items-center mb-3">
+//         <p className="text-xs font-semibold text-[#0A2740]/40 uppercase tracking-wider">
+//           Delivery options
+//         </p>
+//         <span className="text-sm font-bold text-[#0A2740]">
+//           Item: {currency} {productCost.toFixed(2)}
+//         </span>
+//       </div>
+//       <div className="space-y-2">
+//         {shippingOptions.map((opt) => (
+//           <button
+//             key={opt.name}
+//             onClick={() => onSelect(opt)}
+//             className="w-full flex items-center justify-between border border-gray-200 rounded-xl px-4 py-3 text-sm hover:border-[#0A2740] hover:bg-[#0A2740]/5 transition-all text-left"
+//           >
+//             <div>
+//               <p className="font-semibold text-[#0A2740]">{opt.name}</p>
+//               {opt.estimatedDays && (
+//                 <p className="text-xs text-[#0A2740]/40">{opt.estimatedDays}</p>
+//               )}
+//             </div>
+//             <span className="font-bold text-[#0A2740] shrink-0 ml-4">
+//               {opt.price === 0 ? "Free" : `${currency} ${opt.price.toFixed(2)}`}
+//             </span>
+//           </button>
+//         ))}
+//       </div>
+//     </div>
+//   );
+// }
+
+// ─── x402 helpers ─────────────────────────────────────────────────────────
+
+const POLL_INTERVAL = 5_000;
+const POLL_TIMEOUT = 10 * 60 * 1_000;
+
+function buildCheckoutBody(data: CheckoutPaymentData) {
+  const nameParts = data.userData.name.trim().split(/\s+/);
+  const firstName = nameParts[0] ?? "";
+  const lastName = nameParts.slice(1).join(" ") || firstName;
+  const addr = data.userData.address;
+  const countryName = Country.getCountryByCode(addr.country)?.name ?? addr.country;
+
+  const options: Record<string, string> = {};
+  if (data.selectedSize) options["Size"] = data.selectedSize;
+  if (data.selectedColor) options["Color"] = data.selectedColor;
+
+  return {
+    items: [
+      {
+        url: data.product.productUrl,
+        quantity: 1,
+        ...(Object.keys(options).length > 0 ? { options } : {}),
+      },
+    ],
+    email: data.userData.email,
+    shippingAddress: {
+      firstName,
+      lastName,
+      line1: addr.line1,
+      city: addr.city,
+      state: addr.state,
+      postalCode: addr.zip,
+      country: countryName,
+      countryCode: addr.country,
+      phone: data.userData.phone,
+    },
+    goodsTotal: data.goodsTotal,
+    chainId: 8453,
+  };
+}
+
+// ─── PaymentCard component ─────────────────────────────────────────────────
+
+type PayPhase = "idle" | "signing" | "polling" | "auth_required" | "done" | "failed";
+
+function PaymentCard({
+  data,
+  onSuccess,
+  onFailed,
 }: {
-  productCost: number;
-  currency: string;
-  shippingOptions: ShippingOption[];
-  onSelect: (option: ShippingOption) => void;
+  data: CheckoutPaymentData;
+  onSuccess: (orderNumber: string) => void;
+  onFailed: (msg: string) => void;
 }) {
+  const [phase, setPhase] = useState<PayPhase>("idle");
+  const [error, setError] = useState("");
+  const doneRef = useRef(false);
+
+  const { isConnected } = useAccount();
+  const { data: walletClient } = useWalletClient();
+  const publicClient = usePublicClient({ chainId: 8453 });
+
+  const setErr = (msg: string) => {
+    setError(msg);
+    setPhase("failed");
+    onFailed(msg);
+  };
+
+  const buildFetchWithPayment = () => {
+    if (!walletClient) throw new Error("Wallet not connected");
+    const signer: ClientEvmSigner = {
+      address: walletClient.account.address,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      signTypedData: (msg) => walletClient.signTypedData({ ...msg, account: walletClient.account } as any),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      readContract: (args) => publicClient!.readContract(args as any),
+    };
+    const client = new x402Client();
+    registerExactEvmScheme(client, { signer });
+    return wrapFetchWithPayment(fetch, client);
+  };
+
+  async function pollStatus(id: string, fetchWP: typeof fetch) {
+    setPhase("polling");
+    const deadline = Date.now() + POLL_TIMEOUT;
+
+    while (Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, POLL_INTERVAL));
+      if (doneRef.current) return;
+
+      const res = await fetch(`/api/checkout/${id}`);
+      const json = await res.json().catch(() => ({}));
+
+      if (json.status === "completed") {
+        doneRef.current = true;
+        setPhase("done");
+        onSuccess(json.orderNumber ?? id);
+        return;
+      }
+      if (json.status === "failed") {
+        setErr(json.errorMessage ?? "Checkout failed");
+        return;
+      }
+      if (json.status === "authorization_required") {
+        setPhase("auth_required");
+        try {
+          await fetchWP(`/api/checkout/${id}/authorize`, { method: "POST" });
+          setPhase("polling");
+        } catch (err) {
+          if (err instanceof Error && err.message.includes("User rejected")) {
+            setPhase("idle");
+            setError("Authorization cancelled.");
+          } else {
+            setErr(err instanceof Error ? err.message : "Authorization failed");
+          }
+          return;
+        }
+      }
+      // "processing" | "pending" → keep polling
+    }
+    setErr("Checkout timed out. Please contact support.");
+  }
+
+  async function handlePay() {
+    if (!isConnected || !walletClient) return;
+    try {
+      setPhase("signing");
+      setError("");
+      const fetchWP = buildFetchWithPayment();
+      const body = buildCheckoutBody(data);
+
+      const checkoutRes = await fetchWP("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      if (!checkoutRes.ok) {
+        const err = await checkoutRes.json().catch(() => ({}));
+        setErr(err.error ?? `Checkout failed (${checkoutRes.status})`);
+        return;
+      }
+
+      const checkout = await checkoutRes.json();
+      await pollStatus(checkout.requestId, fetchWP);
+    } catch (err) {
+      if (err instanceof Error && err.message.includes("User rejected")) {
+        setPhase("idle");
+        setError("Payment cancelled.");
+      } else {
+        setErr(err instanceof Error ? err.message : "Unexpected error");
+      }
+    }
+  }
+
+  const statusLabel: Partial<Record<PayPhase, string>> = {
+    signing: "Check your wallet to sign...",
+    polling: "Processing order...",
+    auth_required: "Additional payment — check your wallet...",
+  };
+
+  const isBusy = phase === "signing" || phase === "polling" || phase === "auth_required";
+
   return (
     <div className="mt-2 bg-white border border-gray-100 rounded-2xl p-4 shadow-sm max-w-sm w-full">
-      <div className="flex justify-between items-center mb-3">
-        <p className="text-xs font-semibold text-[#0A2740]/40 uppercase tracking-wider">
-          Delivery options
-        </p>
-        <span className="text-sm font-bold text-[#0A2740]">
-          Item: {currency} {productCost.toFixed(2)}
-        </span>
+      {/* Order summary */}
+      <p className="text-xs font-semibold text-[#0A2740]/40 uppercase tracking-wider mb-3">
+        Order summary
+      </p>
+      <div className="space-y-1 text-sm mb-4">
+        <div className="flex justify-between">
+          <span className="text-[#0A2740]/60 truncate max-w-[65%]">{data.product.name}</span>
+          <span className="font-medium text-[#0A2740]">{data.currency} {data.productCost.toFixed(2)}</span>
+        </div>
+        {data.selectedSize && (
+          <div className="text-xs text-[#0A2740]/40">Size: {data.selectedSize}{data.selectedColor ? ` · ${data.selectedColor}` : ""}</div>
+        )}
+        {/* SHIPPING: uncomment to re-enable shipping line in order summary
+        <div className="flex justify-between text-xs text-[#0A2740]/50">
+          <span>{data.shippingOption?.name}</span>
+          <span>{data.shippingOption?.price === 0 ? "Free" : `${data.currency} ${data.shippingOption?.price.toFixed(2)}`}</span>
+        </div>
+        */}
+        <div className="flex justify-between font-bold text-[#0A2740] border-t border-gray-100 pt-2 mt-2">
+          <span>Total</span>
+          <span>{data.currency} {data.goodsTotal}</span>
+        </div>
       </div>
-      <div className="space-y-2">
-        {shippingOptions.map((opt) => (
+
+      {/* Status */}
+      {isBusy && (
+        <div className="flex items-center gap-2 mb-3 text-sm text-[#0A2740]/70">
+          <span className="w-4 h-4 border-2 border-[#0BD751] border-t-transparent rounded-full animate-spin shrink-0" />
+          {statusLabel[phase]}
+        </div>
+      )}
+
+      {/* Error */}
+      {phase === "failed" && (
+        <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
+      {/* Wallet connect / identity */}
+      {phase !== "done" && phase !== "failed" && (
+        <Wallet>
+          <ConnectWallet className="w-full bg-[#0052FF] text-white font-bold py-2.5 rounded-xl text-sm hover:bg-[#0044DD] transition-colors" />
+          <WalletDropdown>
+            <Identity hasCopyAddressOnClick className="px-4 pt-3 pb-2">
+              <Avatar />
+              <Name />
+              <Address />
+            </Identity>
+            <WalletDropdownDisconnect />
+          </WalletDropdown>
+        </Wallet>
+      )}
+
+      {/* Pay button */}
+      {isConnected && phase === "idle" && (
+        <div className="space-y-2 mt-2">
           <button
-            key={opt.name}
-            onClick={() => onSelect(opt)}
-            className="w-full flex items-center justify-between border border-gray-200 rounded-xl px-4 py-3 text-sm hover:border-[#0A2740] hover:bg-[#0A2740]/5 transition-all text-left"
+            onClick={handlePay}
+            className="w-full bg-[#0BD751] text-[#0A2740] font-bold py-2.5 rounded-xl text-sm hover:bg-[#09c248] transition-colors"
           >
-            <div>
-              <p className="font-semibold text-[#0A2740]">{opt.name}</p>
-              {opt.estimatedDays && (
-                <p className="text-xs text-[#0A2740]/40">{opt.estimatedDays}</p>
-              )}
-            </div>
-            <span className="font-bold text-[#0A2740] shrink-0 ml-4">
-              {opt.price === 0 ? "Free" : `${currency} ${opt.price.toFixed(2)}`}
-            </span>
+            Pay {data.currency} {data.goodsTotal} · USDC
           </button>
-        ))}
-      </div>
+          {error && <p className="text-xs text-[#0A2740]/40 text-center">{error}</p>}
+        </div>
+      )}
+
+      {/* Done */}
+      {phase === "done" && (
+        <div className="flex items-center gap-2 text-sm text-[#0A2740]/60">
+          <div className="w-6 h-6 rounded-full bg-[#0BD751] flex items-center justify-center text-white text-xs font-bold">✓</div>
+          Payment sent successfully
+        </div>
+      )}
+
+      <p className="text-xs text-[#0A2740]/25 text-center mt-3">
+        Settled in USDC on Base · Powered by x402
+      </p>
     </div>
   );
 }
@@ -593,9 +871,35 @@ export default function ShoppingAssistant() {
     }
   };
 
-  // Step 4a: User confirms stored details → fetch shipping
+  // Shared helper: build and push the payment card directly using product price
+  const goToPayment = (userData: StoredUserData) => {
+    const { product, size, color } = selectionRef.current;
+    if (!product) return;
+    const goodsTotal = product.price.toFixed(2);
+    const currency = product.currency ?? "USD";
+    push(
+      assistantMsg(
+        `Ready to checkout! Total: ${currency} ${goodsTotal}`,
+        "checkout_payment",
+        {
+          checkoutPayment: {
+            product,
+            selectedSize: size,
+            selectedColor: color,
+            userData,
+            productCost: product.price,
+            currency,
+            goodsTotal,
+          },
+        }
+      )
+    );
+  };
+
+  // Step 4a: User confirms stored details → go straight to payment
+  // SHIPPING: to re-enable, replace goToPayment(storedUser) with fetchShipping(storedUser.address)
   const handleConfirmDetails = () => {
-    if (storedUser) fetchShipping(storedUser.address);
+    if (storedUser) goToPayment(storedUser);
   };
 
   // Step 4b: User wants to edit → clear stored, show form
@@ -604,69 +908,79 @@ export default function ShoppingAssistant() {
     push(assistantMsg("No problem — enter your updated delivery details:", "address_form"));
   };
 
-  // Step 4c: User submits form → save → fetch shipping
+  // Step 4c: User submits form → save → go straight to payment
+  // SHIPPING: to re-enable, replace goToPayment(d) with fetchShipping(d.address)
   const handleFormSubmit = (d: StoredUserData) => {
     saveUser(d);
     push(userMsg("Details saved ✓"));
-    fetchShipping(d.address);
+    goToPayment(d);
   };
 
-  // Step 5: Fetch shipping options from TinyFish
-  const fetchShipping = async (address: StoredUserData["address"]) => {
-    const { product, size, color } = selectionRef.current;
-    if (!product) return;
+  // SHIPPING: uncomment to re-enable delivery options step (Steps 5 & 6)
+  // const fetchShipping = async (address: StoredUserData["address"]) => {
+  //   const { product, size, color } = selectionRef.current;
+  //   if (!product) return;
+  //   push(assistantMsg("Looking up delivery options...", "loading"));
+  //   try {
+  //     const result = await fetchShippingOptions(product, size, color, address);
+  //     replaceLast(
+  //       assistantMsg(
+  //         "Here are the available delivery options. Pick one to see the total:",
+  //         "shipping_options",
+  //         {
+  //           shippingOptions: result.shippingOptions,
+  //           productCost: result.productCost,
+  //           currency: result.currency,
+  //         }
+  //       )
+  //     );
+  //   } catch {
+  //     const price = product.price.toFixed(2);
+  //     const currency = product.currency ?? "USD";
+  //     console.warn("[shipping] failed, falling back to product price");
+  //     if (!storedUser) return;
+  //     const fallbackOption: ShippingOption = { name: "Standard", price: 0 };
+  //     const checkoutData: CheckoutPaymentData = {
+  //       product,
+  //       selectedSize: selectionRef.current.size,
+  //       selectedColor: selectionRef.current.color,
+  //       userData: storedUser,
+  //       shippingOption: fallbackOption,
+  //       productCost: product.price,
+  //       currency,
+  //       goodsTotal: price,
+  //     };
+  //     replaceLast(
+  //       assistantMsg(`Ready to checkout! Total: ${currency} ${price}`, "checkout_payment", {
+  //         checkoutPayment: checkoutData,
+  //       })
+  //     );
+  //   }
+  // };
 
-    push(assistantMsg("Looking up delivery options...", "loading"));
-
-    try {
-      const result = await fetchShippingOptions(product, size, color, address);
-      replaceLast(
-        assistantMsg(
-          "Here are the available delivery options. Pick one to see the total:",
-          "shipping_options",
-          {
-            shippingOptions: result.shippingOptions,
-            productCost: result.productCost,
-            currency: result.currency,
-          }
-        )
-      );
-    } catch {
-      const price = product.price.toFixed(2);
-      const currency = product.currency ?? "USD";
-      console.warn("[shipping] failed, proceeding with product price only");
-      replaceLast(assistantMsg(`Processing your order...`, "loading"));
-      triggerCheckout(price, currency);
-    }
-  };
-
-  // Step 6: User picks shipping → show total → checkout
-  const handleSelectShipping = (option: ShippingOption, productCost: number, currency: string) => {
-    const total = (productCost + option.price).toFixed(2);
-    push(userMsg(`${option.name} — ${option.price === 0 ? "Free" : `${currency} ${option.price.toFixed(2)}`}`));
-    triggerCheckout(total, currency);
-  };
-
-  // Final step: Process payment
-  const triggerCheckout = (total: string, currency: string) => {
-    push(
-      assistantMsg(
-        `Sending payment of ${currency} ${total} via x402...`,
-        "loading"
-      )
-    );
-
-    setTimeout(() => {
-      const ref = "CPY-" + Math.random().toString(36).slice(2, 8).toUpperCase();
-      replaceLast(
-        assistantMsg(
-          "Checkout complete!",
-          "success",
-          { orderRef: ref }
-        )
-      );
-    }, 2200);
-  };
+  // const handleSelectShipping = (option: ShippingOption, productCost: number, currency: string) => {
+  //   push(userMsg(`${option.name} — ${option.price === 0 ? "Free" : `${currency} ${option.price.toFixed(2)}`}`));
+  //   const { product, size, color } = selectionRef.current;
+  //   if (!product || !storedUser) return;
+  //   const goodsTotal = (productCost + option.price).toFixed(2);
+  //   const checkoutData: CheckoutPaymentData = {
+  //     product,
+  //     selectedSize: size,
+  //     selectedColor: color,
+  //     userData: storedUser,
+  //     shippingOption: option,
+  //     productCost,
+  //     currency,
+  //     goodsTotal,
+  //   };
+  //   push(
+  //     assistantMsg(
+  //       `Ready to checkout! Total: ${currency} ${goodsTotal}`,
+  //       "checkout_payment",
+  //       { checkoutPayment: checkoutData }
+  //     )
+  //   );
+  // };
 
   return (
     <div className="flex flex-col" style={{ minHeight: 400 }}>
@@ -762,6 +1076,7 @@ export default function ShoppingAssistant() {
                     </div>
                   )}
 
+                  {/* SHIPPING: uncomment to re-enable delivery options step
                   {msg.type === "shipping_options" && msg.data?.shippingOptions && (
                     <div className="bg-white border border-gray-100 rounded-3xl rounded-tl-sm px-4 py-3 shadow-sm">
                       <p className="text-sm text-[#0A2740] mb-1">{msg.content}</p>
@@ -775,6 +1090,24 @@ export default function ShoppingAssistant() {
                             msg.data?.productCost ?? 0,
                             msg.data?.currency ?? "USD"
                           )
+                        }
+                      />
+                    </div>
+                  )}
+                  */}
+
+                  {msg.type === "checkout_payment" && msg.data?.checkoutPayment && (
+                    <div className="bg-white border border-gray-100 rounded-3xl rounded-tl-sm px-4 py-3 shadow-sm">
+                      <p className="text-sm text-[#0A2740] mb-1">{msg.content}</p>
+                      <PaymentCard
+                        data={msg.data.checkoutPayment}
+                        onSuccess={(orderNumber) =>
+                          push(
+                            assistantMsg("Order placed!", "success", { orderRef: orderNumber })
+                          )
+                        }
+                        onFailed={(errMsg) =>
+                          push(assistantMsg(`Checkout failed: ${errMsg}`, "text"))
                         }
                       />
                     </div>

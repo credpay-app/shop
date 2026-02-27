@@ -22,7 +22,7 @@ const steps = [
 
 export default function AgentInstall() {
   const [copied, setCopied] = useState(false);
-  const command = "claude mcp add shop.credpay.xyz";
+  const command = "npx skills add credpayapp/shop";
 
   const copy = () => {
     navigator.clipboard.writeText(command);
@@ -41,7 +41,9 @@ export default function AgentInstall() {
           <h3 className="font-bold text-[#0A2740] text-lg leading-tight">
             Send Your Agent to Shop by Credpay
           </h3>
-          <p className="text-[#0A2740]/45 text-sm">One command to enable autonomous checkout</p>
+          <p className="text-[#0A2740]/45 text-sm">
+            One command to enable autonomous checkout
+          </p>
         </div>
       </div>
 
@@ -67,7 +69,9 @@ export default function AgentInstall() {
             </div>
             <div>
               <p className="font-semibold text-[#0A2740] text-sm">{title}</p>
-              <p className="text-[#0A2740]/50 text-sm leading-relaxed">{desc}</p>
+              <p className="text-[#0A2740]/50 text-sm leading-relaxed">
+                {desc}
+              </p>
             </div>
           </div>
         ))}

@@ -13,6 +13,7 @@ export interface CartProduct {
   currency: string;
   availableSizes: string[];
   colors: string[];
+  imageUrl?: string;
 }
 
 export interface ShippingOption {
@@ -49,6 +50,17 @@ export interface PaymentMandate {
   paymentMethod: "x402_usdc";
 }
 
+export interface CheckoutPaymentData {
+  product: CartProduct;
+  selectedSize?: string;
+  selectedColor?: string;
+  userData: StoredUserData;
+  shippingOption?: ShippingOption;
+  productCost: number;
+  currency: string;
+  goodsTotal: string;
+}
+
 export type ChatMessageType =
   | "text"
   | "loading"
@@ -57,7 +69,8 @@ export type ChatMessageType =
   | "color_selector"
   | "confirm_details"
   | "address_form"
-  | "shipping_options"
+  // | "shipping_options"  // SHIPPING: uncomment to re-enable delivery options step
+  | "checkout_payment"
   | "success";
 
 export interface ChatMessage {
@@ -77,5 +90,6 @@ export interface ChatMessage {
     productCost?: number;
     currency?: string;
     orderRef?: string;
+    checkoutPayment?: CheckoutPaymentData;
   };
 }
