@@ -22,7 +22,7 @@ const steps = [
 
 export default function AgentInstall() {
   const [copied, setCopied] = useState(false);
-  const command = "npx skills add credpayapp/shop";
+  const command = "npx skills add credpay-app/shop";
 
   const copy = () => {
     navigator.clipboard.writeText(command);
